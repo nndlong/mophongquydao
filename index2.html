@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhà Khám Phá Hệ Mặt Trời 2D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c2e 0%, #1a1a3e 50%, #2d1b69 100%);
+            overflow: hidden;
+            color: white;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #canvas2d {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+        }
+
+        #canvas2d:active {
+            cursor: grabbing;
+        }
+
+        .ui-panel {
+            position: absolute;
+            background: rgba(0, 20, 40, 0.9);
+            border: 2px solid #4a90e2;
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        .control-panel {
+            top: 20px;
+            left: 20px;
+            width: 300px;
+        }
+
+        .info-panel {
+            top: 20px;
+            right: 20px;
+            width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .bottom-panel {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        h2 {
+            color: #64b5f6;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        h3 {
+            color: #81c784;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b3e5fc;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: linear-gradient(45deg, #357abd, #2968a3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+        }
+
+        button.active {
+            background: linear-gradient(45deg, #81c784, #66bb6a);
+            box-shadow: 0 2px 8px rgba(129, 199, 132, 0.5);
+        }
+
+        .planet-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4a90e2;
+        }
+
+        .measurement-display {
+            background: rgba(129, 199, 132, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .speed-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .speed-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .speed-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #ffeb3b, #f44336);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="stars" id="stars"></div>
+        
+        <canvas id="canvas2d"></canvas>
+        
+        <div class="ui-panel control-panel">
+            <h2>🚀 Điều Khiển Khám Phá</h2>
+            
+            <div class="control-group">
+                <label>Tốc độ thời gian:</label>
+                <input type="range" id="timeSpeed" min="0" max="5" value="1" step="0.1">
+                <div class="speed-indicator">
+                    <span>Chậm</span>
+                    <div class="speed-bar">
+                        <div class="speed-fill" id="speedFill"></div>
+                    </div>
+                    <span>Nhanh</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Khoảng cách camera:</label>
+                <input type="range" id="cameraDistance" min="200" max="800" value="400">
+            </div>
+
+            <div class="control-group">
+                <button id="pauseBtn">⏸️ Tạm dừng</button>
+                <button id="resetBtn">🔄 Đặt lại</button>
+            </div>
+
+            <div class="control-group">
+                <h3>Chế độ xem:</h3>
+                <button id="freeView" class="active">🎮 Tự do</button>
+                <button id="followEarth">🌍 Theo Trái đất</button>
+                <button id="followMars">🔴 Theo Sao Hỏa</button>
+            </div>
+
+            <div class="control-group">
+                <button id="showOrbits">Ẩn quỹ đạo</button>
+                <button id="measureTool">📏 Công cụ đo</button>
+            </div>
+        </div>
+
+        <div class="ui-panel info-panel">
+            <h2>📚 Thông Tin Khám Phá</h2>
+            <div id="planetInfo">
+                <div class="planet-info">
+                    <h3>🌞 Mặt Trời</h3>
+                    <p><strong>Đường kính:</strong> 1,392,700 km</p>
+                    <p><strong>Khối lượng:</strong> 1.989 × 10³⁰ kg</p>
+                    <p><strong>Nhiệt độ bề mặt:</strong> 5,778 K</p>
+                </div>
+
+                <div class="planet-info">
+                    <h3>🌍 Trái Đất</h3>
+                    <p><strong>Khoảng cách từ Mặt Trời:</strong> 149.6 triệu km</p>
+                    <p><strong>Chu kỳ quỹ đạo:</strong> 365.25 ngày</p>
+                    <p><strong>Đường kính:</strong> 12,742 km</p>
+                    <p><strong>Vệ tinh:</strong> Mặt Trăng</p>
+                </div>
+
+                <div class="planet-info">
+                    <h3>🌙 Mặt Trăng</h3>
+                    <p><strong>Khoảng cách từ Trái Đất:</strong> 384,400 km</p>
+                    <p><strong>Chu kỳ quỹ đạo:</strong> 27.3 ngày</p>
+                    <p><strong>Đường kính:</strong> 3,474 km</p>
+                </div>
+
+                <div class="planet-info">
+                    <h3>🔴 Sao Hỏa</h3>
+                    <p><strong>Khoảng cách từ Mặt Trời:</strong> 227.9 triệu km</p>
+                    <p><strong>Chu kỳ quỹ đạo:</strong> 687 ngày Trái Đất</p>
+                    <p><strong>Đường kính:</strong> 6,779 km</p>
+                    <p><strong>Biệt danh:</strong> Hành tinh Đỏ</p>
+                </div>
+            </div>
+
+            <div id="measurementInfo" class="measurement-display" style="display: none;">
+                <h3>📏 Kết quả đo lường:</h3>
+                <div id="distanceResult">Nhấp vào 2 điểm trên bản đồ để đo.</div>
+            </div>
+        </div>
+
+        <div class="ui-panel bottom-panel">
+            <div style="text-align: center;">
+                <div style="font-size: 14px; margin-bottom: 5px;">Thời gian mô phỏng:</div>
+                <div id="simulationTime" style="font-size: 18px; font-weight: bold; color: #64b5f6;">Ngày 0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SolarSystemExplorer {
+            constructor() {
+                this.canvas = document.getElementById('canvas2d');
+                this.ctx = this.canvas.getContext('2d');
+                this.setupCanvas();
+                
+                // Trạng thái game
+                this.isPaused = false;
+                this.timeSpeed = 1;
+                this.simulationDay = 0;
+                this.cameraX = 0;
+                this.cameraY = 0;
+                this.cameraZoom = 1; // Sử dụng zoom thay cho distance
+                this.viewMode = 'free';
+                this.showOrbits = true;
+                this.measureMode = false;
+                this.measureStart = null;
+                this.measureEnd = null;
+
+                // Tỉ lệ: 1 pixel tương ứng bao nhiêu km
+                this.KM_PER_PIXEL = 1_000_000;
+                
+                // Vật lý và thiên thể
+                this.setupCelestialBodies();
+                this.setupEventListeners();
+                this.createStars();
+
+                // Cập nhật giao diện lúc đầu
+                this.updateSpeedIndicator();
+                
+                // Bắt đầu animation
+                this.animate();
+            }
+
+            setupCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                
+                window.addEventListener('resize', () => {
+                    this.canvas.width = window.innerWidth;
+                    this.canvas.height = window.innerHeight;
+                });
+            }
+
+            setupCelestialBodies() {
+                this.sun = {
+                    x: 0, y: 0,
+                    radius: 30,
+                    color: '#FDB813',
+                    name: 'Mặt Trời'
+                };
+
+                this.earth = {
+                    angle: 0,
+                    orbitRadius: 150,
+                    radius: 8,
+                    color: '#4A90E2',
+                    speed: 0.0172, // 2*PI / 365.25 ngày ~ 0.0172
+                    name: 'Trái Đất',
+                    x: 0, y: 0
+                };
+
+                this.moon = {
+                    angle: 0,
+                    orbitRadius: 25,
+                    radius: 2,
+                    color: '#CCCCCC',
+                    speed: 0.23, // 2*PI / 27.3 ngày ~ 0.23
+                    name: 'Mặt Trăng',
+                    x: 0, y: 0
+                };
+
+                this.mars = {
+                    angle: Math.PI, // Bắt đầu ở vị trí đối diện Trái Đất
+                    orbitRadius: 230,
+                    radius: 6,
+                    color: '#CD5C5C',
+                    speed: 0.0091, // 2*PI / 687 ngày ~ 0.0091
+                    name: 'Sao Hỏa',
+                    x: 0, y: 0
+                };
+                
+                this.celestialBodies = [this.sun, this.earth, this.moon, this.mars];
+            }
+
+            setupEventListeners() {
+                const timeSpeedSlider = document.getElementById('timeSpeed');
+                const cameraDistanceSlider = document.getElementById('cameraDistance');
+
+                // Điều khiển thời gian
+                timeSpeedSlider.addEventListener('input', (e) => {
+                    this.timeSpeed = parseFloat(e.target.value);
+                    this.updateSpeedIndicator();
+                });
+
+                // Điều khiển camera (zoom)
+                cameraDistanceSlider.addEventListener('input', (e) => {
+                    // Giá trị từ 200 đến 800 -> zoom từ 2 (gần) đến 0.5 (xa)
+                    this.cameraZoom = 1 / (parseInt(e.target.value) / 400);
+                });
+
+                // Nút điều khiển
+                document.getElementById('pauseBtn').addEventListener('click', () => {
+                    this.isPaused = !this.isPaused;
+                    document.getElementById('pauseBtn').innerHTML = this.isPaused ? '▶️ Tiếp tục' : '⏸️ Tạm dừng';
+                });
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.resetSimulation();
+                });
+
+                // Chế độ xem
+                document.getElementById('freeView').addEventListener('click', () => this.setViewMode('free'));
+                document.getElementById('followEarth').addEventListener('click', () => this.setViewMode('earth'));
+                document.getElementById('followMars').addEventListener('click', () => this.setViewMode('mars'));
+
+                // Hiển thị quỹ đạo
+                document.getElementById('showOrbits').addEventListener('click', (e) => {
+                    this.showOrbits = !this.showOrbits;
+                    e.target.textContent = this.showOrbits ? 'Ẩn quỹ đạo' : 'Hiện quỹ đạo';
+                });
+
+                // Công cụ đo
+                document.getElementById('measureTool').addEventListener('click', (e) => {
+                    this.measureMode = !this.measureMode;
+                    e.target.classList.toggle('active', this.measureMode);
+                    document.getElementById('measurementInfo').style.display = this.measureMode ? 'block' : 'none';
+                    document.getElementById('distanceResult').innerHTML = "Nhấp vào 2 điểm trên bản đồ để đo.";
+                    this.measureStart = null;
+                    this.measureEnd = null;
+                });
+
+                // Điều khiển chuột
+                let isDragging = false;
+                let lastMouseX, lastMouseY;
+
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if (this.measureMode) {
+                        this.handleMeasureClick(e);
+                    } else {
+                        isDragging = true;
+                        lastMouseX = e.clientX;
+                        lastMouseY = e.clientY;
+                    }
+                });
+
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (isDragging && this.viewMode === 'free') {
+                        const deltaX = e.clientX - lastMouseX;
+                        const deltaY = e.clientY - lastMouseY;
+                        // Dịch camera ngược lại với hướng kéo chuột
+                        this.cameraX += deltaX;
+                        this.cameraY += deltaY;
+                        lastMouseX = e.clientX;
+                        lastMouseY = e.clientY;
+                    }
+                });
+
+                // <<< SỬA LỖI: Thêm sự kiện mouseup và mouseleave để dừng kéo thả
+                const stopDragging = () => {
+                    isDragging = false;
+                };
+                this.canvas.addEventListener('mouseup', stopDragging);
+                this.canvas.addEventListener('mouseleave', stopDragging);
+            } // <<< SỬA LỖI: Đóng hàm setupEventListeners ở đúng vị trí
+
+            // <<< SỬA LỖI: Di chuyển resetSimulation() ra ngoài thành một phương thức của class
+            resetSimulation() {
+                this.simulationDay = 0;
+                this.timeSpeed = 1;
+                this.isPaused = false;
+                document.getElementById('pauseBtn').innerHTML = '⏸️ Tạm dừng';
+                document.getElementById('timeSpeed').value = 1;
+                this.updateSpeedIndicator();
+                
+                this.setupCelestialBodies(); // Đặt lại vị trí ban đầu
+                
+                this.cameraX = 0;
+                this.cameraY = 0;
+                this.cameraZoom = 1;
+                document.getElementById('cameraDistance').value = 400;
+
+                this.setViewMode('free');
+                this.measureStart = null;
+                this.measureEnd = null;
+            }
+
+            // <<< THÊM MỚI: Hàm cập nhật thanh chỉ báo tốc độ
+            updateSpeedIndicator() {
+                const speedSlider = document.getElementById('timeSpeed');
+                const percentage = (this.timeSpeed / speedSlider.max) * 100;
+                document.getElementById('speedFill').style.width = `${percentage}%`;
+            }
+
+            // <<< THÊM MỚI: Hàm chuyển đổi chế độ xem
+            setViewMode(mode) {
+                this.viewMode = mode;
+                document.querySelectorAll('.control-group button').forEach(btn => btn.classList.remove('active'));
+                if (mode === 'free') document.getElementById('freeView').classList.add('active');
+                if (mode === 'earth') document.getElementById('followEarth').classList.add('active');
+                if (mode === 'mars') document.getElementById('followMars').classList.add('active');
+
+                // Nếu không phải free view, tắt kéo thả bằng tay
+                if(mode !== 'free') {
+                    this.cameraX = 0;
+                    this.cameraY = 0;
+                }
+            }
+
+            // <<< THÊM MỚI: Hàm xử lý click cho công cụ đo
+            handleMeasureClick(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                // Chuyển đổi tọa độ click trên màn hình về tọa độ trong "thế giới" của mô phỏng
+                const worldX = (e.clientX - rect.left - this.canvas.width / 2) / this.cameraZoom - this.cameraX;
+                const worldY = (e.clientY - rect.top - this.canvas.height / 2) / this.cameraZoom - this.cameraY;
+
+                if (!this.measureStart) {
+                    this.measureStart = { x: worldX, y: worldY };
+                    this.measureEnd = null;
+                    document.getElementById('distanceResult').innerHTML = "Nhấp vào điểm thứ hai...";
+                } else if (!this.measureEnd) {
+                    this.measureEnd = { x: worldX, y: worldY };
+                    const dx = this.measureEnd.x - this.measureStart.x;
+                    const dy = this.measureEnd.y - this.measureStart.y;
+                    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                    const realDistance = pixelDistance * this.KM_PER_PIXEL;
+                    document.getElementById('distanceResult').innerHTML = 
+                        `Khoảng cách: <strong>${realDistance.toLocaleString('vi-VN')} km</strong>`;
+                } else {
+                    // Bắt đầu đo lại
+                    this.measureStart = { x: worldX, y: worldY };
+                    this.measureEnd = null;
+                    document.getElementById('distanceResult').innerHTML = "Nhấp vào điểm thứ hai...";
+                }
+            }
+
+
+            createStars() {
+                const starsContainer = document.getElementById('stars');
+                starsContainer.innerHTML = ''; // Xóa sao cũ nếu có
+                for (let i = 0; i < 200; i++) {
+                    const star = document.createElement('div');
+                    star.className = 'star';
+                    star.style.left = Math.random() * 100 + '%';
+                    star.style.top = Math.random() * 100 + '%';
+                    const size = (Math.random() * 2 + 1);
+                    star.style.width = size + 'px';
+                    star.style.height = size + 'px';
+                    star.style.animationDelay = Math.random() * 3 + 's';
+                    starsContainer.appendChild(star);
+                }
+            }
+
+            updatePositions() {
+                if (this.isPaused) return;
+
+                const timeFactor = this.timeSpeed;
+
+                // Cập nhật góc quỹ đạo
+                this.earth.angle += this.earth.speed * timeFactor;
+                this.moon.angle += this.moon.speed * timeFactor;
+                this.mars.angle += this.mars.speed * timeFactor;
+
+                // Tính toán vị trí Trái Đất
+                this.earth.x = Math.cos(this.earth.angle) * this.earth.orbitRadius;
+                this.earth.y = Math.sin(this.earth.angle) * this.earth.orbitRadius;
+
+                // Tính toán vị trí Mặt Trăng (quanh Trái Đất)
+                this.moon.x = this.earth.x + Math.cos(this.moon.angle) * this.moon.orbitRadius;
+                this.moon.y = this.earth.y + Math.sin(this.moon.angle) * this.moon.orbitRadius;
+
+                // Tính toán vị trí Sao Hỏa
+                this.mars.x = Math.cos(this.mars.angle) * this.mars.orbitRadius;
+                this.mars.y = Math.sin(this.mars.angle) * this.mars.orbitRadius;
+
+                // Cập nhật thời gian mô phỏng
+                this.simulationDay += timeFactor;
+                document.getElementById('simulationTime').textContent = 
+                    `Ngày ${Math.floor(this.simulationDay)}`;
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.ctx.save();
+                
+                // Di chuyển gốc tọa độ đến giữa màn hình
+                this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+
+                // Áp dụng zoom
+                this.ctx.scale(this.cameraZoom, this.cameraZoom);
+
+                // Cập nhật camera theo chế độ xem
+                let targetX = this.cameraX;
+                let targetY = this.cameraY;
+
+                if (this.viewMode === 'earth') {
+                    targetX = -this.earth.x;
+                    targetY = -this.earth.y;
+                } else if (this.viewMode === 'mars') {
+                    targetX = -this.mars.x;
+                    targetY = -this.mars.y;
+                }
+                this.ctx.translate(targetX, targetY);
+                
+                // Vẽ quỹ đạo
+                if (this.showOrbits) {
+                    this.drawOrbit(0, 0, this.earth.orbitRadius, 'rgba(74, 144, 226, 0.3)');
+                    this.drawOrbit(0, 0, this.mars.orbitRadius, 'rgba(205, 92, 92, 0.3)');
+                    this.drawOrbit(this.earth.x, this.earth.y, this.moon.orbitRadius, 'rgba(204, 204, 204, 0.3)');
+                }
+
+                // Vẽ các thiên thể
+                this.celestialBodies.forEach(body => {
+                    this.drawCelestialBody(body);
+                });
+
+                // Vẽ đường đo lường
+                if (this.measureMode) {
+                    this.drawMeasurementLine();
+                }
+
+                this.ctx.restore();
+            }
+
+            drawOrbit(centerX, centerY, radius, color) {
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 1 / this.cameraZoom; // Làm cho đường kẻ mảnh hơn khi zoom xa
+                this.ctx.stroke();
+            }
+
+            drawCelestialBody(body) {
+                const { x, y, radius, color, name } = body;
+                // Vẽ hành tinh
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                this.ctx.fillStyle = color;
+                this.ctx.fill();
+                
+                // Thêm hiệu ứng ánh sáng cho Mặt Trời
+                if (name === 'Mặt Trời') {
+                    const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, radius * 2.5);
+                    gradient.addColorStop(0, 'rgba(253, 184, 19, 0.8)');
+                    gradient.addColorStop(0.5, 'rgba(253, 184, 19, 0.4)');
+                    gradient.addColorStop(1, 'rgba(253, 184, 19, 0)');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.arc(x, y, radius * 2.5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                // Vẽ tên hành tinh
+                const fontSize = 12 / this.cameraZoom;
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = `${fontSize}px Arial`;
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(name, x, y + radius + 15 / this.cameraZoom);
+            }
+
+            drawMeasurementLine() {
+                if (!this.measureStart) return;
+
+                this.ctx.beginPath();
+                this.ctx.arc(this.measureStart.x, this.measureStart.y, 5 / this.cameraZoom, 0, Math.PI * 2);
+                this.ctx.fillStyle = '#4CAF50';
+                this.ctx.fill();
+
+                if (this.measureEnd) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.measureStart.x, this.measureStart.y);
+                    this.ctx.lineTo(this.measureEnd.x, this.measureEnd.y);
+                    this.ctx.strokeStyle = '#4CAF50';
+                    this.ctx.lineWidth = 2 / this.cameraZoom;
+                    this.ctx.stroke();
+
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.measureEnd.x, this.measureEnd.y, 5 / this.cameraZoom, 0, Math.PI * 2);
+                    this.ctx.fillStyle = '#4CAF50';
+                    this.ctx.fill();
+                }
+            }
+
+            animate() {
+                this.updatePositions();
+                this.render();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // Khởi tạo game
+        const game = new SolarSystemExplorer();
+    </script>
+</body>
+</html>
